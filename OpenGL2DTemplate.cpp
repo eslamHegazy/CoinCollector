@@ -22,6 +22,8 @@ float  coins_deg;
 
 int* pu_x, * pu_y, * pu_t;
 float pu_width, pu_height;
+float pu1_speedfactor;
+int pu1_flag;
 
 float player_width, player_height, player_x, player_y, player_speed;
 
@@ -158,12 +160,13 @@ void init(int n_lanes) {
 	pu_x = new int[num_pu];
 	pu_y = new int[num_pu];
 	pu_t = new int[num_pu];
+	pu1_speedfactor = 5;
 
 	player_width = 0.12 * pl_w;
 	player_height = 0.6 * lane_height;
 	player_x = pl_x + 10;
 	player_y = pl_y + 0.1 * lane_height;
-	player_speed = 5;//0;
+	player_speed = 2;//0;
 
 	randomBridges();
 	randomCoins();
@@ -292,6 +295,25 @@ void drawPowerup0(){
 	glVertex2f(27, 35);
 	glEnd();
 }
+void FuncPowerup0() {//Key ; opens a bridge in front of the player
+	int i = 0;
+	while (i < num_of_lane_borders && player_y + player_height>pl_y + lane_borders[i]) {
+		printf("%f < %f\n", player_y + player_height, pl_y + lane_borders[i]);
+		i++;
+	}
+	printf("%d\n", i);
+	if (i == num_of_lane_borders) return;
+	float mar = (bridge_width - player_width) / 2;
+	int x2_nb = player_x - pl_x - mar;
+	if (x2_nb < 0) x2_nb = 0;
+	int x3_nb = x2_nb + bridge_width;
+	if (x3_nb > pl_w) {
+		x3_nb = pl_w;
+		x2_nb = x3_nb - bridge_width;
+	}
+	x2[i] = x2_nb;
+	x3[i] = x3_nb;
+}
 void drawPowerup1() {
 	glColor3f(0.3f, 0.1f, 0.8f);
 	glBegin(GL_TRIANGLE_FAN);
@@ -300,6 +322,15 @@ void drawPowerup1() {
 	glVertex2f(27, 35);
 	glEnd();
 }
+void stopFuncPowerup1(int val) {
+	player_speed /= pu1_speedfactor;
+}
+void FuncPowerup1() {//Increase speed of the player for a specific amount of time
+	player_speed *= pu1_speedfactor;
+	//pu1_flag = 0;
+	glutTimerFunc(3000, stopFuncPowerup1, 0);
+}
+
 void drawPowerups() {
 	for (int i = 0; i < num_pu; i++) {
 		if (pu_x[i] == -1) continue;
@@ -344,7 +375,9 @@ void randomCoins() {
 void randomPowerups() {
 	float ht = lane_height + lane_border_height;
 	for (int i = 0; i < num_pu; i++) {
-		int lane_num = rand() % num_of_lanes;
+		int lane_num = rand() % (i%2?num_of_lanes:(num_of_lanes-1));
+		
+		printf("lane num = %d\n", lane_num);
 		int x = pl_x + rand() % (int)(pl_w - pu_width);
 		int y = pl_y + ht * lane_num + 0.25 * lane_height;
 		if (notfree(x, x + pu_width, y, y + pu_height)) {
@@ -487,12 +520,19 @@ void handleCollisions(float dx, float dy) {
 		if (coins_x[i] == -1) continue;
 		if (collision(new_x1, new_x2, new_y1, new_y2, coins_x[i], coins_x[i] + coin_width, coins_y[i], coins_y[i] + coin_height)) {
 			score++;
-			coins_x[i] = coins_y[i] = -1;
-			
+			coins_x[i] = coins_y[i] = -1;	
 		}
 	}
 
 	/* Getting a Powerup*/
+	for (int i = 0; i < num_pu; i++) {
+		if (pu_x[i] == -1) continue;
+		if (collision(new_x1, new_x2, new_y1, new_y2, pu_x[i], pu_x[i]+pu_width, pu_y[i], pu_y[i] + pu_height)) {
+			pu_t[i] ? FuncPowerup1() : FuncPowerup0();
+			pu_x[i] = pu_y[i] = pu_t[i]= -1;
+		}
+	}
+
 
 	player_x = new_x1;
 	player_y = new_y1;
