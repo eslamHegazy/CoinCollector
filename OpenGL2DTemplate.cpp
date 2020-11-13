@@ -50,6 +50,7 @@ void Key(unsigned char key, int x, int y);
 //void KeyUp(unsigned char key, int x, int y);
 //void Mouse(int button, int state, int x, int y);
 void Timer(int value);
+void RandomPos(int value);
 /*
 class lane_border {
 public:
@@ -107,6 +108,7 @@ void main(int argc, char** argr) {
 	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
 	gluOrtho2D(0.0, win_w, 0.0, win_h);
 	glutTimerFunc(0, Timer, 0); // sets the Timer handler function; which runs every `Threshold` milliseconds (1st argument)
+	glutTimerFunc(0, RandomPos, 0); // sets the Timer handler function; which runs every `Threshold` milliseconds (1st argument)
 	glutMainLoop();
 
 	frees();
@@ -375,6 +377,7 @@ void randomCoins() {
 void randomPowerups() {
 	float ht = lane_height + lane_border_height;
 	for (int i = 0; i < num_pu; i++) {
+		if (pu_x[i] == -1) continue;
 		int lane_num = rand() % (i%2?num_of_lanes:(num_of_lanes-1));
 		
 		printf("lane num = %d\n", lane_num);
@@ -451,24 +454,8 @@ void handleCollisions(float dx, float dy) {
 		int coll1 = collision(new_x1, new_x2, new_y1, new_y2, x1i, x2i, yb1, yb2);
 		int coll2 = collision(new_x1, new_x2, new_y1, new_y2, x3i, pl_x + pl_w, yb1, yb2);
 		int coll3 = collision(old_x1, old_x2, old_y1, old_y2, x2i, x3i, yb1, yb2);
-		if (dy == 0) {
-			if (coll3) {
-				if (coll1) {
-					//printf("coll1: new_x1=%f new_x2=%f x1i=%d x2i=%d\n",new_x1,new_x2,x1i,x2i);
-					printf("coll1: new_y1=%f new_y2=%f yb1=%f yb2=%f\n", new_y1, new_y2, yb1, yb2);
-					new_x1 = x2i;
-					new_x2 = x2i + player_width;
-				}
-
-				if (coll2) {
-					//printf("coll1: new_x1=%f new_x2=%f x1i=%d x2i=%d\n", new_x1, new_x2, x1i, x2i);
-					printf("coll2: new_y1=%f new_y2=%f yb1=%f yb2=%f\n", new_y1, new_y2, yb1, yb2);
-					new_x1 = x3i - player_width;
-					new_x2 = x3i;
-				}
-			}
-		}
-		else if (dx == 0) {
+		
+		if (dx == 0) {
 			if (coll1 || coll2) {
 				if (dy > 0) {
 					new_y1 = yb1 - player_height;
@@ -513,6 +500,23 @@ void handleCollisions(float dx, float dy) {
 		}
 		*/
 
+		if (dy == 0) {
+			if (coll3) {
+				if (coll1) {
+					//printf("coll1: new_x1=%f new_x2=%f x1i=%d x2i=%d\n",new_x1,new_x2,x1i,x2i);
+					printf("coll1: new_y1=%f new_y2=%f yb1=%f yb2=%f\n", new_y1, new_y2, yb1, yb2);
+					new_x1 = x2i;
+					new_x2 = x2i + player_width;
+				}
+
+				if (coll2) {
+					//printf("coll1: new_x1=%f new_x2=%f x1i=%d x2i=%d\n", new_x1, new_x2, x1i, x2i);
+					printf("coll2: new_y1=%f new_y2=%f yb1=%f yb2=%f\n", new_y1, new_y2, yb1, yb2);
+					new_x1 = x3i - player_width;
+					new_x2 = x3i;
+				}
+			}
+		}
 	}
 	
 	/* Collecting Coins*/
@@ -607,7 +611,12 @@ void Timer(int value) {
 	glutTimerFunc(100, Timer, 0);
 }
 
-
+void RandomPos(int value) {
+	randomBridges();
+	randomPowerups();
+	handleCollisions(0, 0);
+	glutTimerFunc(5000, RandomPos,0);
+}
 
 void frees() {
 	if (!lane_borders) delete [] lane_borders;
