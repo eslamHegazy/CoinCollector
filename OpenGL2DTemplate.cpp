@@ -10,14 +10,22 @@ int num_of_lanes;
 int maze_th_x, maze_th_y;
 int bridge_width;
 float* lane_borders;
-float  deg = 0;
 int* x1;
 int* x2;
 int* x3;
-int num_of_lane_borders;
+int num_of_lane_borders, num_coins, num_pu;
 float  lane_height, lane_border_height;
 
+int* coins_x, *coins_y;
+float coin_width, coin_height;
+float  coins_deg;
+
+int* pu_x, * pu_y, * pu_t;
+float pu_width, pu_height;
+
 float player_width, player_height, player_x, player_y, player_speed;
+
+int score = 0;
 
 void Display();
 void dist();
@@ -29,7 +37,12 @@ void drawCircle(int x, int y, float r);
 void drawMazeBorder(int x_thickness, int y_thickness);
 void drawLanes();
 void randomBridges();
+void randomCoins();
+void randomPowerups();
+int notfree(float x1, float x2, float y1, float y2);
+int collision(int p1x1, int p1x2, int p1y1, int p1y2,int p2x1, int p2x2, int p2y1, int p2y2);
 void handleCollisions(float dx, float dy);
+
 void frees();
 void Key(unsigned char key, int x, int y);
 //void KeyUp(unsigned char key, int x, int y);
@@ -92,7 +105,6 @@ void main(int argc, char** argr) {
 	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
 	gluOrtho2D(0.0, win_w, 0.0, win_h);
 	glutTimerFunc(0, Timer, 0); // sets the Timer handler function; which runs every `Threshold` milliseconds (1st argument)
-
 	glutMainLoop();
 
 	frees();
@@ -129,19 +141,33 @@ void init(int n_lanes) {
 	lane_height = pl_h / (num_of_lanes + 1);
 	lane_border_height = lane_height / (num_of_lanes - 1);
 
+	num_coins = 4;
+	coin_height = lane_height * 0.5;
+	coin_width = coin_height;
+
+	num_pu = 5;
+	pu_width = 54;
+	pu_height = 35;
+
 	lane_borders = new float[num_of_lane_borders];
 	x1 = new int[num_of_lane_borders];
 	x2 = new int[num_of_lane_borders];
 	x3 = new int[num_of_lane_borders];
+	coins_x = new int[num_coins];
+	coins_y = new int[num_coins];
+	pu_x = new int[num_pu];
+	pu_y = new int[num_pu];
+	pu_t = new int[num_pu];
 
 	player_width = 0.12 * pl_w;
 	player_height = 0.6 * lane_height;
 	player_x = pl_x + 10;
 	player_y = pl_y + 0.1 * lane_height;
-	player_speed = 1;//0;
+	player_speed = 5;//0;
 
 	randomBridges();
-
+	randomCoins();
+	randomPowerups();
 }
 
 void drawRect(float x, float y, float w, float h, float r, float g, float b) {
@@ -164,12 +190,17 @@ void drawCircle(int x, int y, float r) {
 
 void drawCoin() {
 	glColor3f(1, 1, 1);
-	glPushMatrix();
-	glTranslatef(450, 450, 0);
-	glScalef(0.5f, 0.5f, 1.0f);
+	//glPushMatrix();
+	//glTranslatef(450, 450, 0);
+	//glScalef(0.5f, 0.5f, 1.0f);
 	GLUquadric* quadObj = gluNewQuadric();
-	gluDisk(quadObj, 25, 60, 50, 50);
-	glPopMatrix();
+	gluDisk(quadObj, 0, coin_width/2, 50, 50);
+	glColor3f(0.9f, 0.5f, 0.9f);
+	glBegin(GL_LINES);
+	glVertex3f(-coin_width/2, 0, 0);
+	glVertex3f(coin_width/2, 0, 0);
+	glEnd();
+	//glPopMatrix();
 	
 }
 
@@ -226,7 +257,7 @@ void drawLanes() {
 	//		cur_y += lane_border_height;
 	//	}
 	//}
-	printf("num_of_lane_borders=%d, lane_height=%f\n", num_of_lane_borders, lane_height);
+	//printf("num_of_lane_borders=%d, lane_height=%f\n", num_of_lane_borders, lane_height);
 	for (int i = 0; i < num_of_lane_borders; i++) {
 		cur_y += lane_height;
 		lane_borders[i] = cur_y;
@@ -242,6 +273,43 @@ void drawLanes() {
 	}
 }
 
+void drawCoins() {
+	for (int i = 0; i < num_coins; i++) {
+		if (coins_x[i] == -1) continue;
+		glPushMatrix();
+		glTranslatef(coin_width/2+coins_x[i], coin_height/2+coins_y[i], 0);
+		glRotatef(coins_deg, 0, 0, 1.0f);
+		//glScalef(coin_width, coin_height, 1);
+		drawCoin();
+		glPopMatrix();
+	}
+}
+void drawPowerup0(){
+	glColor3f(0.3f, 0.7f, 0.1f);
+	glBegin(GL_TRIANGLE_FAN);
+	glVertex2f(0, 0);
+	glVertex2f(54, 0);
+	glVertex2f(27, 35);
+	glEnd();
+}
+void drawPowerup1() {
+	glColor3f(0.3f, 0.1f, 0.8f);
+	glBegin(GL_TRIANGLE_FAN);
+	glVertex2f(0, 0);
+	glVertex2f(54, 0);
+	glVertex2f(27, 35);
+	glEnd();
+}
+void drawPowerups() {
+	for (int i = 0; i < num_pu; i++) {
+		if (pu_x[i] == -1) continue;
+		glPushMatrix();
+		glTranslatef(pu_x[i] , pu_y[i], 0);
+		//glScalef(coin_width, coin_height, 1);
+		pu_t[i] ? drawPowerup0() : drawPowerup1();
+		glPopMatrix();
+	}
+}
 void randomBridges() {
 	printf("pl_x=%f, pl_w=%f\n", pl_x, pl_w);
 	for (int i = 0; i < num_of_lane_borders; i++) {
@@ -256,11 +324,182 @@ void randomBridges() {
 
 }
 
-void handleCollisions(float dx, float dy) {
+void randomCoins() {
+	float ht = lane_height + lane_border_height;
+	for (int i = 0; i < num_coins; i++) {
+		int lane_num = rand() % num_of_lanes;
+		int x = pl_x + rand() % (int)(pl_w - coin_width);
+		int y = pl_y + ht * lane_num + 0.25 * lane_height;
+		if (notfree(x, x + coin_width, y, y + coin_height)) {
+			printf("Wrong Guess: x=%d y=%d\n", x, y);
+			i--;
+		}
+		else {
+			coins_x[i] = x;
+			coins_y[i] = y;
+		}
+	}
+
+}
+void randomPowerups() {
+	float ht = lane_height + lane_border_height;
+	for (int i = 0; i < num_pu; i++) {
+		int lane_num = rand() % num_of_lanes;
+		int x = pl_x + rand() % (int)(pl_w - pu_width);
+		int y = pl_y + ht * lane_num + 0.25 * lane_height;
+		if (notfree(x, x + pu_width, y, y + pu_height)) {
+			printf("PU:Wrong Guess: x=%d y=%d\n", x, y);
+			i--;
+		}
+		else {
+			pu_x[i] = x;
+			pu_y[i] = y;
+			pu_t[i] = i % 2;
+		}
+	}
 
 }
 
+int notfree(float x1, float x2, float y1, float y2) {
+	int res = 0;
+	/* Check for Coins*/
+	for (int i = 0; i < num_coins; i++) {
+		res += collision(x1, x2, y1, y2, coins_x[i], coins_x[i] + coin_width, coins_y[i], coins_y[i] + coin_height);
+	}
+	res += collision(x1, x2, y1, y2, player_x, player_x + player_width, player_y, player_y + player_height);
+	
+	/* Check For Powerups*/
+	for (int i = 0; i < num_pu; i++) {
+		res += collision(x1, x2, y1, y2, pu_x[i], pu_x[i] + pu_width, pu_y[i], pu_y[i] + pu_height);
+	}
+	/* Check for the player*/
+	res += collision(x1, x2, y1, y2, player_x, player_x + player_width, player_y, player_y + player_height);
+
+	return res;
+}
+
+int collision(int p1x1, int p1x2, int p1y1, int p1y2,
+	int p2x1, int p2x2, int p2y1, int p2y2) {
+	return p1x1<p2x2 && p1x2>p2x1 &&
+		p1y1<p2y2 && p1y2>p2y1;
+}
+void handleCollisions(float dx, float dy) {
+	float old_x1 = player_x;
+	float old_y1 = player_y;
+	float new_x1 = old_x1 + dx;
+	float new_y1 = old_y1 + dy;
+	float old_x2 = old_x1 + player_width;
+	float new_x2 = new_x1 + player_width;
+	float old_y2 = old_y1 + player_height;
+	float new_y2 = new_y1 + player_height;
+	/* Collisions with maze borders*/
+	if (new_x1 < pl_x) {
+		new_x1 = pl_x;
+	}
+	else if (new_x2 > pl_x + pl_w) {
+		new_x1 = pl_x + pl_w - player_width;
+	}
+	if (new_y1 < pl_y) {
+		new_y1 = pl_y;
+	}
+	else if (new_y2 > pl_y + pl_h) {
+		new_y1 = pl_y + pl_h - player_height;
+	}
+
+	/* Collisions with lane borders*/
+	int coll = 0;
+	
+	for (int i = 0; i < num_of_lane_borders && !coll; i++) {
+		int x1i = x1[i]+pl_x;
+		int x2i = x2[i]+pl_x;
+		int x3i = x3[i]+pl_x;
+		float yb1 = lane_borders[i];
+		float yb2 = yb1 + lane_border_height;
+		int coll1 = collision(new_x1, new_x2, new_y1, new_y2, x1i, x2i, yb1, yb2);
+		int coll2 = collision(new_x1, new_x2, new_y1, new_y2, x3i, pl_x + pl_w, yb1, yb2);
+		int coll3 = collision(old_x1, old_x2, old_y1, old_y2, x2i, x3i, yb1, yb2);
+		if (dy == 0) {
+			if (coll3) {
+				if (coll1) {
+					//printf("coll1: new_x1=%f new_x2=%f x1i=%d x2i=%d\n",new_x1,new_x2,x1i,x2i);
+					printf("coll1: new_y1=%f new_y2=%f yb1=%f yb2=%f\n", new_y1, new_y2, yb1, yb2);
+					new_x1 = x2i;
+					new_x2 = x2i + player_width;
+				}
+
+				if (coll2) {
+					//printf("coll1: new_x1=%f new_x2=%f x1i=%d x2i=%d\n", new_x1, new_x2, x1i, x2i);
+					printf("coll2: new_y1=%f new_y2=%f yb1=%f yb2=%f\n", new_y1, new_y2, yb1, yb2);
+					new_x1 = x3i - player_width;
+					new_x2 = x3i;
+				}
+			}
+		}
+		else if (dx == 0) {
+			if (coll1 || coll2) {
+				if (dy > 0) {
+					new_y1 = yb1 - player_height;
+					new_y2 = yb1;
+				}
+				else {
+					new_y1 = yb2;
+					new_y2 = yb2 + player_height;
+				}
+			}
+			//else {
+			//	//handling too much speed that the player may cross the border without overlapping with it
+			//	if(old_y1<yb1&& new_y1>yb2) {
+			//		new_y1 = yb1 - player_height;
+			//	}
+			//	else if (old_y1 > yb2 && new_y1 < yb1) {
+			//		new_y1 = yb2;
+			//	}
+			//}
+		}
+
+		/*
+		if ( (old_y<yb1 && new_y>yb1) || (old_y+player_height<yb1 && new_y+player_height>yb1 )){
+			if ((old_x <= x2i && new_x < x2i) || (new_x + player_width > x3i)) {
+				new_y = yb1 - player_height;
+				coll++;
+			}
+		}
+		if ((old_x >= x2i && old_x + player_width <= x3i)) {
+			if (new_x + player_width > x3i) {
+				if (old_y<yb2 && old_y + player_height>yb1) {
+					new_x = x3i - player_width;
+					coll++;
+				}
+			}
+			else if (new_x < x2i) {
+				if (old_y<yb2 && old_y + player_height>yb1) {
+				new_x = x3i - player_width;
+				coll++;
+				}
+			}
+		}
+		*/
+
+	}
+	
+	/* Collecting Coins*/
+	for (int i = 0; i < num_coins; i++) {
+		if (coins_x[i] == -1) continue;
+		if (collision(new_x1, new_x2, new_y1, new_y2, coins_x[i], coins_x[i] + coin_width, coins_y[i], coins_y[i] + coin_height)) {
+			score++;
+			coins_x[i] = coins_y[i] = -1;
+			
+		}
+	}
+
+	/* Getting a Powerup*/
+
+	player_x = new_x1;
+	player_y = new_y1;
+}
+
 void Display() {
+
 	glClear(GL_COLOR_BUFFER_BIT);
 	/*
 	printf("scr_w=%d, scr_h=%d\n", scr_w, scr_h);
@@ -271,25 +510,27 @@ void Display() {
 	*/
 	drawMazeBorder(maze_th_x, maze_th_y);
 	drawLanes();//15);
-	
-	glPushMatrix();
-	glTranslatef(250, 80, 0);
-	glRotatef(deg, 0.0f, 0.0f, 1.0f);
-	glTranslatef(-250, -80, 0);
-	glColor3f(0.7f, 0.7f, 0.7f);
-	//drawCircle(250, 80, 25);
-	drawRect(235, 65, 25, 25, 0.7f, 0.7f, 0.7f);
-	glColor3f(0.83f, 0.69f, 0.21f);
-	drawRect(240, 70, 15, 15, 0.83f, 0.69f, 0.21f);
-	//glTranslatef(280, 115, 0);
-	//glTranslatef(-280, -110, 0);
-	//drawRect(250, 80, 60, 30, 0, 0, 0);
-	
-	glPopMatrix();
+	drawCoins();
+	drawPowerups();
+
+	//glPushMatrix();
+	//glTranslatef(250, 80, 0);
+	//glRotatef(deg, 0.0f, 0.0f, 1.0f);
+	//glTranslatef(-250, -80, 0);
+	//glColor3f(0.7f, 0.7f, 0.7f);
+	////drawCircle(250, 80, 25);
+	//drawRect(235, 65, 25, 25, 0.7f, 0.7f, 0.7f);
+	//glColor3f(0.83f, 0.69f, 0.21f);
+	//drawRect(240, 70, 15, 15, 0.83f, 0.69f, 0.21f);
+	////glTranslatef(280, 115, 0);
+	////glTranslatef(-280, -110, 0);
+	////drawRect(250, 80, 60, 30, 0, 0, 0);
+	//
+	//glPopMatrix();
 
 	drawRect(player_x, player_y, player_width, player_height, 1.0f, 0, 0);
 
-	drawCoin();
+	//drawCoin();
 	
 	glFlush();
 }
@@ -316,39 +557,9 @@ void Key(unsigned char key, int x, int y) {
 
 void Timer(int value) {
 	
-	if (deg >= 360) deg = 0;
-	deg += 5.0f;
-	/*if (deg >= 0 && deg < 5) {
-		deg += 0.1f;
-	}
-	else if ((deg >= 5 && deg < 10) || (deg>=135 && deg<145)) {
-		deg += 0.2f;
-	}
-	else if ((deg >= 10 && deg < 20) || (deg>=125 && deg<135)) {
-		deg += 0.5f;
-	}
-	else if ((deg >= 20 && deg < 30) || (deg>=115 && deg < 125)) {
-		deg += 1.0f;
-	}
-	else if (deg == 30) {
-		deg = 115;
-	}
-	else if (deg >= 210 && deg < 270) {
-		deg += 10;
-	}
-	else {
-		deg += 5;
-	}*/
-	/*
-	if (deg >= 0 && deg < 90)
-		deg += 15;
-	else if (deg >= 90 && deg < 270) {
-		deg += 31;
-	}
-	else {
-		deg += 15;
-	}
-	*/
+	if (coins_deg == 360) coins_deg = 0;
+	coins_deg += 2.0f;
+
 	// ask OpenGL to recall the display function to reflect the changes on the window
 	glutPostRedisplay();
 
@@ -363,7 +574,11 @@ void frees() {
 	if (!x1) delete[] x1;
 	if (!x2) delete[] x2;
 	if (!x3) delete[] x3;
-
+	if (!coins_x) delete[] coins_x;
+	if (!coins_y) delete[] coins_y;
+	if (!pu_x) delete[] pu_x;
+	if (!pu_y) delete[] pu_y;
+	if (!pu_t) delete[] pu_t;
 }
 
 void drawCandy() {
