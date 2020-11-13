@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 #include <random>
 #include <glut.h>
@@ -15,7 +16,7 @@ int* x2;
 int* x3;
 int num_of_lane_borders, num_coins, num_pu;
 float  lane_height, lane_border_height;
-
+int game_timer;
 int* coins_x, *coins_y;
 float coin_width, coin_height;
 float  coins_deg;
@@ -23,13 +24,18 @@ float  coins_deg;
 int* pu_x, * pu_y, * pu_t;
 float pu_width, pu_height;
 float pu1_speedfactor;
+char* pu1_str = "You have ultimate speed for 5 seconds";
 int pu1_flag;
 
 float player_width, player_height, player_x, player_y, player_speed;
+float goal_w, goal_h, goal_x, goal_y;
 
-int score = 0;
+
+int score = 0, win = 0;;
 
 void Display();
+void won();
+void lost();
 void dist();
 //void drawRect(int x, int y, int w, int h, float r, float g, float b);
 //void drawRect(float x, float y, float w, float h, float r, float g, float b);
@@ -38,6 +44,7 @@ void drawRect(float x, float y, float w, float h, float r, float g, float b);
 void drawCircle(int x, int y, float r);
 void drawMazeBorder(int x_thickness, int y_thickness);
 void drawLanes();
+void goalPos();
 void randomBridges();
 void randomCoins();
 void randomPowerups();
@@ -51,6 +58,8 @@ void Key(unsigned char key, int x, int y);
 //void Mouse(int button, int state, int x, int y);
 void Timer(int value);
 void RandomPos(int value);
+void gameTimer(int value);
+
 /*
 class lane_border {
 public:
@@ -109,6 +118,7 @@ void main(int argc, char** argr) {
 	gluOrtho2D(0.0, win_w, 0.0, win_h);
 	glutTimerFunc(0, Timer, 0); // sets the Timer handler function; which runs every `Threshold` milliseconds (1st argument)
 	glutTimerFunc(0, RandomPos, 0); // sets the Timer handler function; which runs every `Threshold` milliseconds (1st argument)
+	glutTimerFunc(0, gameTimer, 0); // sets the Timer handler function; which runs every `Threshold` milliseconds (1st argument)
 	glutMainLoop();
 
 	frees();
@@ -129,7 +139,6 @@ void init(int n_lanes) {
 	//glutInitWindowSize(300, 300);
 	glutInitWindowSize(win_w, win_h);
 	glutInitWindowPosition(win_x, win_y);
-	
 	pl_x = maze_th_x = (win_w * 0.06);
 	pl_y = maze_th_y = (win_h * 0.06); //pl_y-=2;
 	pl_w = win_w - 2.0f * pl_x;
@@ -170,15 +179,60 @@ void init(int n_lanes) {
 	player_y = pl_y + 0.1 * lane_height;
 	player_speed = 2;//0;
 
+	
+	goal_h = 0.5 * lane_height;//20;
+	goal_w = goal_h;
+	//goalPos();
+	goal_x = pl_x + pl_w - 10 - goal_w;
+	goal_y = pl_y + (lane_height+lane_border_height) * (num_of_lanes-1) + 0.25 * lane_height;
+	
+	game_timer = 45;
+	
 	randomBridges();
 	randomCoins();
 	randomPowerups();
+	
 }
+
+
+//this is the method used to print text in OpenGL
+//there are three parameters,
+//the first two are the coordinates where the text is display,
+//the third coordinate is the string containing the text to display
+void print(int x, int y, char* string)
+{
+	int len, i;
+
+	//set the position of the text in the window using the x and y coordinates
+	glRasterPos2f(x, y);
+
+	//get the length of the string to display
+	len = (int)strlen(string);
+
+	//loop to display character by character
+	for (i = 0; i < len; i++)
+	{
+		glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, string[i]);
+	}
+}
+
+
 
 void drawRect(float x, float y, float w, float h, float r, float g, float b) {
 	glColor3f(r, g, b);
 	//printf("%f %f %f %f\n", x, y, w, h);
 	glBegin(GL_POLYGON);
+	glVertex2f(x, y);
+	glVertex2f(x + w, y);
+	glVertex2f(x + w, y + h);
+	glVertex2f(x, y + h);
+	glEnd();
+}
+
+void drawOutline(float x, float y, float w, float h, float r, float g, float b) {
+	glColor3f(r, g, b);
+	//printf("%f %f %f %f\n", x, y, w, h);
+	glBegin(GL_LINE_LOOP);
 	glVertex2f(x, y);
 	glVertex2f(x + w, y);
 	glVertex2f(x + w, y + h);
@@ -220,28 +274,40 @@ void drawMazeBorder(int maze_th_x, int maze_th_y) {
 	drawRect(win_w-maze_th_x, 0, maze_th_x, win_h, r, g, b);
 	drawRect(0, win_h-maze_th_y, win_w, maze_th_y, r, g, b);
 	
-	r = 0.3f; g = 0.3f; b = 0.3f;
-	int rad = ((maze_th_x < maze_th_y ? maze_th_x : maze_th_y) - 4)/3;
-	int xys = 2;
-	int xc = xys + rad;
-	glColor3f(r, g, b);
-	int y1 = xys + rad;
-	int y2 = win_h - (maze_th_y) + xys + rad;
-	while (xc + rad < win_w) {
-		//printf("I am here\n");
-		//printf("%f %f %d", xc + rad, y1, rad);
-		drawCircle(xc , y1, rad);
-		drawCircle(xc , y2, rad);
-		xc += ((rad*2 ));
-	}
-	int yc = maze_th_y + rad;
-	int x1 = xys + rad;
-	int x2 = win_w - (maze_th_x)+xys + rad;
-	while (yc + rad < pl_y + pl_h) {
-		drawCircle(x1, yc + rad, rad);
-		drawCircle(x2, yc + rad, rad);
-		yc += ((rad * 2));
-	}
+	glColor3f(0.4f, 0.3f, 0.75f);
+	glBegin(GL_LINE_STRIP);
+	glVertex3f(pl_x / 3, pl_y / 3, 0);
+	glVertex3f(pl_x / 3, win_h - pl_y / 3, 0);
+	glVertex3f(win_w - pl_x / 3, win_h - pl_y / 3, 0);
+	glVertex3f(win_w - pl_x / 3, pl_y / 3, 0);
+	glVertex3f(pl_x / 3, pl_y / 3, 0);
+	/*glVertex3f(5, 5, 0);
+	glVertex3f(150, 5, 0);
+	glVertex3f(150, 150, 0);*/
+	glEnd();
+
+	//r = 0.3f; g = 0.3f; b = 0.3f;
+	//int rad = ((maze_th_x < maze_th_y ? maze_th_x : maze_th_y) - 4)/3;
+	//int xys = 2;
+	//int xc = xys + rad;
+	//glColor3f(r, g, b);
+	//int y1 = xys + rad;
+	//int y2 = win_h - (maze_th_y) + xys + rad;
+	//while (xc + rad < win_w) {
+	//	//printf("I am here\n");
+	//	//printf("%f %f %d", xc + rad, y1, rad);
+	//	drawCircle(xc , y1, rad);
+	//	drawCircle(xc , y2, rad);
+	//	xc += ((rad*2 ));
+	//}
+	//int yc = maze_th_y + rad;
+	//int x1 = xys + rad;
+	//int x2 = win_w - (maze_th_x)+xys + rad;
+	//while (yc + rad < pl_y + pl_h) {
+	//	drawCircle(x1, yc + rad, rad);
+	//	drawCircle(x2, yc + rad, rad);
+	//	yc += ((rad * 2));
+	//}
 }
 
 void drawLanes() {
@@ -274,6 +340,7 @@ void drawLanes() {
 		drawRect(pl_x+x1i, cur_y, (x2i - x1i), lane_border_height, lbr, lbg, lbb);
 		drawRect(pl_x+x2i, cur_y, (x3i - x2i), lane_border_height, br, bg, bb);
 		drawRect(pl_x+x3i, cur_y, (pl_w - x3i), lane_border_height, lbr, lbg, lbb);
+		//TODO:Outline
 		cur_y += lane_border_height;
 	}
 }
@@ -324,13 +391,46 @@ void drawPowerup1() {
 	glVertex2f(27, 35);
 	glEnd();
 }
+
+void goalPos() {
+	float ht = lane_height + lane_border_height;
+	
+	int lane_num = num_of_lanes-1;
+	int x = pl_x; int y = ht*lane_num;
+	while (1) {
+		int x = pl_x + rand() % (int)(pl_w - goal_w);
+		int y = pl_y + ht * lane_num + 0.25 * lane_height;
+		if (!notfree(x, x + goal_w, y, y + goal_h)) {
+			goal_x = x;
+			goal_y = y;
+			break;
+		}
+	}
+	
+}
+void drawGoal() {
+	glPushMatrix();
+	glColor3f(0.5f, 0.5f, 0.5f);
+	//printf("Drawing goal: %f %f %f %f", goal_x, goal_y, goal_w, goal_h);
+	glTranslatef(goal_x + goal_w/2, goal_y + goal_h/2, 0);
+	glScalef(goal_w / 20 , goal_h / 20, 0);
+	glBegin(GL_POLYGON);
+	glVertex3f(-10, -10, 0);
+	glVertex3f(10, -10, 0);
+	glVertex3f(10, 10, 0);
+	glVertex3f(-10, 10, 0);
+	glEnd();
+	glPopMatrix();
+}
 void stopFuncPowerup1(int val) {
+	pu1_flag = 0;
 	player_speed /= pu1_speedfactor;
 }
 void FuncPowerup1() {//Increase speed of the player for a specific amount of time
 	player_speed *= pu1_speedfactor;
-	//pu1_flag = 0;
-	glutTimerFunc(3000, stopFuncPowerup1, 0);
+	pu1_flag = 1;
+	
+	glutTimerFunc(5000, stopFuncPowerup1, 0);
 }
 
 void drawPowerups() {
@@ -410,6 +510,9 @@ int notfree(float x1, float x2, float y1, float y2) {
 	}
 	/* Check for the player*/
 	res += collision(x1, x2, y1, y2, player_x, player_x + player_width, player_y, player_y + player_height);
+
+	/* Check For Goal*/
+	res += collision(x1, x2, y1, y2, goal_x, goal_x+goal_w, goal_y, goal_y+goal_h);
 
 	return res;
 }
@@ -536,7 +639,11 @@ void handleCollisions(float dx, float dy) {
 			pu_x[i] = pu_y[i] = pu_t[i]= -1;
 		}
 	}
-
+	/* Acquiring Goal */
+	if (collision(new_x1, new_x2, new_y1, new_y2, goal_x, goal_x + goal_w, goal_y, goal_y + goal_h)) {
+		win = 1;
+		glutDisplayFunc(won);
+	}
 
 	player_x = new_x1;
 	player_y = new_y1;
@@ -545,36 +652,29 @@ void handleCollisions(float dx, float dy) {
 void Display() {
 
 	glClear(GL_COLOR_BUFFER_BIT);
-	/*
-	printf("scr_w=%d, scr_h=%d\n", scr_w, scr_h);
-	printf("win_w=%d, win_h=%d\n", win_w, win_h);
-	printf("pl_w=%d, pl_h=%d\n", pl_w, pl_h);
-	printf("pl_x=%d, pl_y=%d\n", pl_x, pl_y);
-	printf("mz_x=%d, mz_y=%d\n", maze_th_x, maze_th_y);
-	*/
+
 	drawMazeBorder(maze_th_x, maze_th_y);
 	drawLanes();//15);
+	
 	drawCoins();
 	drawPowerups();
-
-	//glPushMatrix();
-	//glTranslatef(250, 80, 0);
-	//glRotatef(deg, 0.0f, 0.0f, 1.0f);
-	//glTranslatef(-250, -80, 0);
-	//glColor3f(0.7f, 0.7f, 0.7f);
-	////drawCircle(250, 80, 25);
-	//drawRect(235, 65, 25, 25, 0.7f, 0.7f, 0.7f);
-	//glColor3f(0.83f, 0.69f, 0.21f);
-	//drawRect(240, 70, 15, 15, 0.83f, 0.69f, 0.21f);
-	////glTranslatef(280, 115, 0);
-	////glTranslatef(-280, -110, 0);
-	////drawRect(250, 80, 60, 30, 0, 0, 0);
-	//
-	//glPopMatrix();
+	drawGoal();
+	
 
 	drawRect(player_x, player_y, player_width, player_height, 1.0f, 0, 0);
+	
+	glColor3f(1, 0, 0);
+	char* p0s[20];
+	sprintf((char*)p0s, "Score: %d", score);
+	if (pu1_flag) {
+		sprintf((char*)p0s, "%s  %s",(char*)p0s, pu1_str);
+	}
+	print(pl_x, win_h - 30, (char*) p0s);
 
-	//drawCoin();
+	char* tim[20];
+	sprintf((char*)tim, "Remaining Time:%d seconds", game_timer);
+	print(pl_x, 3, (char*)tim);
+
 	
 	glFlush();
 }
@@ -602,7 +702,7 @@ void Key(unsigned char key, int x, int y) {
 void Timer(int value) {
 	
 	if (coins_deg == 360) coins_deg = 0;
-	coins_deg += 2.0f;
+	coins_deg += 5.0f;
 
 	// ask OpenGL to recall the display function to reflect the changes on the window
 	glutPostRedisplay();
@@ -615,7 +715,18 @@ void RandomPos(int value) {
 	randomBridges();
 	randomPowerups();
 	handleCollisions(0, 0);
-	glutTimerFunc(5000, RandomPos,0);
+	glutTimerFunc(12000, RandomPos,0);
+}
+void gameTimer(int value) {
+	if (game_timer) {
+		game_timer--;
+	}
+	else {//ended
+		if (!win) {
+			glutDisplayFunc(lost);
+		}
+	}
+	glutTimerFunc(1000, gameTimer, 0);
 }
 
 void frees() {
@@ -636,6 +747,21 @@ void drawCandy() {
 	//drawRect(50, 50, 50, 50, 0.5, 0.5, 0.5);
 	
 	
+}
+
+void won() {
+	glClear(GL_COLOR_BUFFER_BIT);
+	char* str = new char[100];
+	sprintf(str, "Congrats !  Yoo have won with score=%d", score);
+	print(pl_x, pl_h - pl_y, (char*)str);
+	glFlush();
+}
+void lost() {
+	glClear(GL_COLOR_BUFFER_BIT);
+	char* str = new char[100];
+	sprintf(str, "Game Over!  Time ended   Your score:%d", score);
+	print(pl_x, pl_h - pl_y, (char*)str);
+	glFlush();
 }
 
 void dist() {
